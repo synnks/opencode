@@ -54,6 +54,14 @@ export function fromRow(row: Row): Info {
     },
     sandboxes: row.sandboxes,
     commands: row.commands ?? undefined,
+    worktreeSettings: row.worktree_settings
+      ? {
+          baseBranch: row.worktree_settings.base_branch,
+          symlinks: row.worktree_settings.symlinks,
+          copies: row.worktree_settings.copies,
+          rootDir: row.worktree_settings.root_dir,
+        }
+      : undefined,
   }
 }
 
@@ -62,6 +70,7 @@ export const UpdateInput = Schema.Struct({
   name: Schema.optional(Schema.String),
   icon: Schema.optional(Project.Icon),
   commands: Schema.optional(Project.Commands),
+  worktreeSettings: Schema.optional(Project.WorktreeSettings),
 })
 export type UpdateInput = Types.DeepMutable<Schema.Schema.Type<typeof UpdateInput>>
 
@@ -69,12 +78,23 @@ export const UpdatePayload = Schema.Struct({
   name: Schema.optional(Schema.String),
   icon: Schema.optional(Project.Icon),
   commands: Schema.optional(Project.Commands),
+  worktreeSettings: Schema.optional(Project.WorktreeSettings),
 }).annotate({ identifier: "ProjectUpdateInput" })
-export type UpdatePayload = Types.DeepMutable<Schema.Schema.Type<typeof UpdatePayload>>
+export type UpdatePayload = Schema.Schema.Type<typeof UpdatePayload>
 
 export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("Project.NotFoundError", {
   projectID: ProjectV2.ID,
 }) {}
+
+function worktreeSettingsToRow(settings: Info["worktreeSettings"]) {
+  if (!settings) return undefined
+  return {
+    base_branch: settings.baseBranch,
+    symlinks: settings.symlinks,
+    copies: settings.copies,
+    root_dir: settings.rootDir,
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Effect service
@@ -269,6 +289,7 @@ const layer = Layer.effect(
           time_initialized: result.time.initialized,
           sandboxes: result.sandboxes.map((sandbox) => AbsolutePath.make(sandbox)),
           commands: result.commands,
+          worktree_settings: worktreeSettingsToRow(result.worktreeSettings),
         })
         .onConflictDoUpdate({
           target: ProjectTable.id,
@@ -283,6 +304,7 @@ const layer = Layer.effect(
             time_initialized: result.time.initialized,
             sandboxes: result.sandboxes.map((sandbox) => AbsolutePath.make(sandbox)),
             commands: result.commands,
+            worktree_settings: worktreeSettingsToRow(result.worktreeSettings),
           },
         })
         .run()
@@ -351,6 +373,7 @@ const layer = Layer.effect(
           icon_url_override: input.icon?.override,
           icon_color: input.icon?.color,
           commands: input.commands,
+          worktree_settings: worktreeSettingsToRow(input.worktreeSettings),
           time_updated: Date.now(),
         })
         .where(eq(ProjectTable.id, input.projectID))
