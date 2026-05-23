@@ -37,16 +37,30 @@ export const projectHandlers = HttpApiBuilder.group(InstanceHttpApi, "project", 
       params: { projectID: ProjectV2.ID }
       payload: Project.UpdatePayload
     }) {
-      return yield* svc.update({ ...ctx.payload, projectID: ctx.params.projectID }).pipe(
-        Effect.catchTag("Project.NotFoundError", (error) =>
-          Effect.fail(
-            new ProjectNotFoundError({
-              projectID: error.projectID,
-              message: `Project not found: ${error.projectID}`,
-            }),
+      return yield* svc
+        .update({
+          ...ctx.payload,
+          worktreeSettings: ctx.payload.worktreeSettings
+            ? {
+                ...ctx.payload.worktreeSettings,
+                symlinks: ctx.payload.worktreeSettings.symlinks
+                  ? [...ctx.payload.worktreeSettings.symlinks]
+                  : undefined,
+                copies: ctx.payload.worktreeSettings.copies ? [...ctx.payload.worktreeSettings.copies] : undefined,
+              }
+            : undefined,
+          projectID: ctx.params.projectID,
+        })
+        .pipe(
+          Effect.catchTag("Project.NotFoundError", (error) =>
+            Effect.fail(
+              new ProjectNotFoundError({
+                projectID: error.projectID,
+                message: `Project not found: ${error.projectID}`,
+              }),
+            ),
           ),
-        ),
-      )
+        )
     })
 
     const directories = Effect.fn("ProjectHttpApi.directories")((ctx: { params: { projectID: ProjectV2.ID } }) =>

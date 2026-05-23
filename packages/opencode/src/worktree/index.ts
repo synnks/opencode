@@ -29,6 +29,8 @@ export type Info = Schema.Schema.Type<typeof Info>
 
 export const CreateInput = Schema.Struct({
   name: Schema.optional(Schema.String),
+  branch: Schema.optional(Schema.String.annotate({ description: "Custom branch name for the worktree" })),
+  baseBranch: Schema.optional(Schema.String.annotate({ description: "Branch to create the worktree from" })),
   startCommand: Schema.optional(
     Schema.String.annotate({ description: "Additional startup script to run after the project's start command" }),
   ),
@@ -112,13 +114,24 @@ function failedRemoves(...chunks: string[]) {
   )
 }
 
+function resolveWorktreeRoot(rootDir: string | undefined, worktree: string, projectID: string) {
+  if (!rootDir || rootDir === "default") {
+    return `${Global.Path.data}/worktree/${projectID}`
+  }
+  if (rootDir === "sibling") {
+    const idx = worktree.lastIndexOf("/")
+    return idx > 0 ? worktree.slice(0, idx) : worktree
+  }
+  return rootDir.startsWith("/") ? rootDir : `${worktree}/${rootDir}`
+}
+
 // ---------------------------------------------------------------------------
 // Effect service
 // ---------------------------------------------------------------------------
 
 export interface Interface {
   readonly makeWorktreeInfo: (options?: { name?: string; detached?: boolean }) => Effect.Effect<Info, Error>
-  readonly createFromInfo: (info: Info, startCommand?: string) => Effect.Effect<void, Error>
+  readonly createFromInfo: (info: Info, startCommand?: string, baseBranch?: string) => Effect.Effect<void, Error>
   readonly create: (input?: CreateInput) => Effect.Effect<Info, Error>
   readonly list: () => Effect.Effect<(Omit<Info, "branch"> & { branch?: string })[], Error>
   readonly remove: (input: RemoveInput) => Effect.Effect<boolean, Error>
@@ -176,12 +189,15 @@ const layer: Layer.Layer<
       root: string
       name?: string
       detached?: boolean
+      sibling?: boolean
     }) {
       const ctx = yield* InstanceState.context
+      const repoName = input.sibling ? pathSvc.basename(ctx.worktree) : undefined
       for (const attempt of Array.from({ length: MAX_NAME_ATTEMPTS }, (_, i) => i)) {
         const name = input.name ? (attempt === 0 ? input.name : `${input.name}-${Slug.create()}`) : Slug.create()
         const branch = input.detached ? undefined : `opencode/${name}`
-        const directory = pathSvc.join(input.root, name)
+        const dirName = repoName ? `${repoName}-${name}` : name
+        const directory = pathSvc.join(input.root, dirName)
 
         if (yield* fs.exists(directory).pipe(Effect.orDie)) continue
 
@@ -196,6 +212,18 @@ const layer: Layer.Layer<
       return yield* new NameGenerationFailedError({ message: "Failed to generate a unique worktree name" })
     })
 
+    const readWorktreeSettings = Effect.fnUntraced(function* () {
+      const ctx = yield* InstanceState.context
+      const row = yield* db
+        .select()
+        .from(ProjectTable)
+        .where(eq(ProjectTable.id, ctx.project.id))
+        .get()
+        .pipe(Effect.orDie)
+      const proj = row ? Project.fromRow(row) : undefined
+      return proj?.worktreeSettings
+    })
+
     const makeWorktreeInfo = Effect.fn("Worktree.makeWorktreeInfo")(function* (input?: {
       name?: string
       detached?: boolean
@@ -205,20 +233,27 @@ const layer: Layer.Layer<
         return yield* new NotGitError({ message: "Worktrees are only supported for git projects" })
       }
 
-      const root = pathSvc.join(Global.Path.data, "worktree", ctx.project.id)
+      const settings = yield* readWorktreeSettings()
+
+      const root = resolveWorktreeRoot(settings?.rootDir, ctx.worktree, ctx.project.id)
       yield* fs.makeDirectory(root, { recursive: true }).pipe(Effect.orDie)
 
-      return yield* candidate({ root, name: input?.name ? slugify(input.name) : "", detached: input?.detached })
+      const isSibling = settings?.rootDir === "sibling"
+      return yield* candidate({
+        root,
+        name: input?.name ? slugify(input.name) : "",
+        detached: input?.detached,
+        sibling: isSibling,
+      })
     })
 
-    const setup = Effect.fnUntraced(function* (info: Info) {
+    const setup = Effect.fnUntraced(function* (info: Info, baseBranch?: string) {
       const ctx = yield* InstanceState.context
-      const created = yield* git(
-        info.branch
-          ? ["worktree", "add", "--no-checkout", "-b", info.branch, info.directory]
-          : ["worktree", "add", "--no-checkout", "--detach", info.directory, "HEAD"],
-        { cwd: ctx.worktree },
-      )
+      const args = info.branch
+        ? ["worktree", "add", "--no-checkout", "-b", info.branch, info.directory]
+        : ["worktree", "add", "--no-checkout", "--detach", info.directory, "HEAD"]
+      if (baseBranch && info.branch) args.push(baseBranch)
+      const created = yield* git(args, { cwd: ctx.worktree })
       if (created.code !== 0) {
         return yield* new CreateFailedError({
           message: created.stderr || created.text || "Failed to create git worktree",
@@ -228,11 +263,48 @@ const layer: Layer.Layer<
       yield* project.addSandbox(ctx.project.id, info.directory).pipe(Effect.catch(() => Effect.void))
     })
 
-    const boot = Effect.fnUntraced(function* (info: Info, startCommand?: string) {
+    const applyWorktreeLinks = Effect.fnUntraced(function* (
+      directory: string,
+      settings: Project.Info["worktreeSettings"],
+    ) {
+      if (!settings) return
+      const ctx = yield* InstanceState.context
+
+      if (settings.symlinks) {
+        for (const item of settings.symlinks) {
+          const src = pathSvc.resolve(ctx.worktree, item)
+          const dst = pathSvc.resolve(directory, item)
+          const srcExists = yield* fs.exists(src).pipe(Effect.orDie)
+          if (!srcExists) continue
+          yield* fs.makeDirectory(pathSvc.dirname(dst), { recursive: true }).pipe(Effect.orDie)
+          yield* Effect.tryPromise(() => import("fs/promises").then((fsp) => fsp.symlink(src, dst))).pipe(
+            Effect.catch((error) => Effect.logWarning("worktree symlink failed", { src, dst, error })),
+          )
+        }
+      }
+
+      if (settings.copies) {
+        for (const item of settings.copies) {
+          const src = pathSvc.resolve(ctx.worktree, item)
+          const dst = pathSvc.resolve(directory, item)
+          const srcExists = yield* fs.exists(src).pipe(Effect.orDie)
+          if (!srcExists) continue
+          yield* fs.makeDirectory(pathSvc.dirname(dst), { recursive: true }).pipe(Effect.orDie)
+          yield* Effect.tryPromise(() =>
+            import("fs/promises").then((fsp) => fsp.cp(src, dst, { recursive: true })),
+          ).pipe(Effect.catch((error) => Effect.logWarning("worktree copy failed", { src, dst, error })))
+        }
+      }
+    })
+
+    const boot = Effect.fnUntraced(function* (
+      info: Info,
+      opts: { startCommand?: string; worktreeSettings?: Project.Info["worktreeSettings"] },
+    ) {
       const ctx = yield* InstanceState.context
       const workspaceID = yield* InstanceState.workspaceID
       const projectID = ctx.project.id
-      const extra = startCommand?.trim()
+      const extra = opts.startCommand?.trim()
 
       const populated = yield* git(["reset", "--hard"], { cwd: info.directory })
       if (populated.code !== 0) {
@@ -246,6 +318,9 @@ const layer: Layer.Layer<
         })
         return
       }
+
+      // Apply symlinks and copies from project settings
+      yield* applyWorktreeLinks(info.directory, opts.worktreeSettings)
 
       const booted = yield* store.load({ directory: info.directory }).pipe(
         Effect.as(true),
@@ -278,18 +353,53 @@ const layer: Layer.Layer<
       yield* runStartScripts(info.directory, { projectID, extra })
     })
 
-    const createFromInfo = Effect.fn("Worktree.createFromInfo")(function* (info: Info, startCommand?: string) {
-      yield* setup(info)
-      yield* boot(info, startCommand).pipe(
+    const createFromInfo = Effect.fn("Worktree.createFromInfo")(function* (
+      info: Info,
+      startCommand?: string,
+      baseBranch?: string,
+    ) {
+      yield* setup(info, baseBranch)
+      const settings = yield* readWorktreeSettings()
+      yield* boot(info, { startCommand, worktreeSettings: settings }).pipe(
         Effect.catchCause((cause) => Effect.logError("worktree bootstrap failed", { cause })),
         Effect.forkIn(scope),
       )
     })
 
+    const resolveBaseBranch = Effect.fnUntraced(function* (settings: Project.Info["worktreeSettings"], input?: string) {
+      const ctx = yield* InstanceState.context
+      if (input) return input
+      if (settings?.baseBranch) return settings.baseBranch
+      const mainCheck = yield* git(["show-ref", "--verify", "--quiet", "refs/heads/main"], { cwd: ctx.worktree })
+      if (mainCheck.code === 0) return "main"
+      return "master"
+    })
+
     const create = Effect.fn("Worktree.create")(function* (input?: CreateInput) {
       const info = yield* makeWorktreeInfo({ name: input?.name })
-      yield* createFromInfo(info, input?.startCommand)
-      return info
+
+      // Allow overriding the branch name
+      const mutableInfo: { name: string; directory: string; branch?: string } = { ...info }
+      if (input?.branch) {
+        mutableInfo.branch = input.branch
+      }
+
+      // Resolve and validate base branch (reuses the settings already read by makeWorktreeInfo)
+      const ctx = yield* InstanceState.context
+      const settings = yield* readWorktreeSettings()
+      const baseBranch = yield* resolveBaseBranch(settings, input?.baseBranch)
+
+      const refCheck = yield* git(["rev-parse", "--verify", baseBranch], { cwd: ctx.worktree })
+      if (refCheck.code !== 0) {
+        return yield* new CreateFailedError({ message: `invalid reference: ${baseBranch}` })
+      }
+
+      yield* setup(mutableInfo, baseBranch)
+      yield* boot(mutableInfo, { startCommand: input?.startCommand, worktreeSettings: settings }).pipe(
+        Effect.catchCause((cause) => Effect.logError("worktree bootstrap failed", { cause })),
+        Effect.forkIn(scope),
+      )
+      return mutableInfo
     })
 
     const canonical = Effect.fnUntraced(function* (input: string) {

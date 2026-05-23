@@ -981,7 +981,7 @@ export default function LegacyLayout(props: ParentProps) {
         onSelect: () => {
           const project = currentProject()
           if (!project) return
-          return createWorkspace(project)
+          openCreateWorkspaceDialog(project)
         },
       },
       {
@@ -1819,10 +1819,20 @@ export default function LegacyLayout(props: ParentProps) {
     setStore("activeWorkspace", undefined)
   }
 
-  const createWorkspace = async (project: LocalProject) => {
+  const createWorkspace = async (
+    project: LocalProject,
+    input?: { name?: string; branch?: string; baseBranch?: string },
+  ) => {
     clearSidebarHoverState()
     const created = await serverSDK()
-      .client.worktree.create({ directory: project.worktree })
+      .client.worktree.create({
+        directory: project.worktree,
+        worktreeCreateInput: {
+          name: input?.name,
+          branch: input?.branch,
+          baseBranch: input?.baseBranch,
+        },
+      })
       .then((x) => x.data)
       .catch((err) => {
         showToast({
@@ -1857,6 +1867,17 @@ export default function LegacyLayout(props: ParentProps) {
 
     serverSync().child(created.directory)
     navigateWithSidebarReset(`/${base64Encode(created.directory)}/session`)
+  }
+
+  function openCreateWorkspaceDialog(proj: LocalProject) {
+    void import("@/components/dialog-create-workspace").then((x) => {
+      dialog.show(() => (
+        <x.DialogCreateWorkspace
+          defaultBaseBranch={proj.worktreeSettings?.baseBranch}
+          onCreate={(input) => createWorkspace(proj, input)}
+        />
+      ))
+    })
   }
 
   const workspaceSidebarCtx: WorkspaceSidebarContext = {
@@ -2133,7 +2154,7 @@ export default function LegacyLayout(props: ParentProps) {
                         icon="plus-small"
                         class="w-full"
                         onClick={() => {
-                          void createWorkspace(project)
+                          openCreateWorkspaceDialog(project)
                         }}
                       >
                         {language.t("workspace.new")}
