@@ -19,6 +19,15 @@ function requireInstance(context: WorkspaceAdapterContext | undefined) {
   return context.instance
 }
 
+function parseExtra(extra: unknown): { name?: string; baseBranch?: string } {
+  if (!extra || typeof extra !== "object") return {}
+  const obj = extra as Record<string, unknown>
+  return {
+    name: typeof obj.name === "string" ? obj.name : undefined,
+    baseBranch: typeof obj.baseBranch === "string" ? obj.baseBranch : undefined,
+  }
+}
+
 const provideContext = <A, E, R>(effect: Effect.Effect<A, E, R>, context: WorkspaceAdapterContext | undefined) =>
   effect.pipe(
     Effect.provideService(InstanceRef, requireInstance(context)),
@@ -30,9 +39,10 @@ export const WorktreeAdapter: WorkspaceAdapter = {
   description: "Create a git worktree",
   async configure(info, context) {
     const { AppRuntime, Worktree } = await loadWorktree()
+    const extra = parseExtra(info.extra)
     const next = await AppRuntime.runPromise(
       provideContext(
-        Worktree.Service.use((svc) => svc.makeWorktreeInfo({ detached: true })),
+        Worktree.Service.use((svc) => svc.makeWorktreeInfo({ name: info.name ?? extra.name, detached: true })),
         context,
       ),
     )
@@ -45,14 +55,19 @@ export const WorktreeAdapter: WorkspaceAdapter = {
   async create(info, _env, _from, context) {
     const { AppRuntime, Worktree } = await loadWorktree()
     const config = decodeWorktreeConfig(info)
+    const extra = parseExtra(info.extra)
     await AppRuntime.runPromise(
       provideContext(
         Worktree.Service.use((svc) =>
-          svc.createFromInfo({
-            name: config.name,
-            directory: config.directory,
-            ...(config.branch ? { branch: config.branch } : {}),
-          }),
+          svc.createFromInfo(
+            {
+              name: config.name,
+              directory: config.directory,
+              ...(config.branch ? { branch: config.branch } : {}),
+            },
+            undefined,
+            extra.baseBranch,
+          ),
         ),
         context,
       ),

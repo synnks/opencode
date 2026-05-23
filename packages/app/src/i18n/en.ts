@@ -476,6 +476,33 @@ export const dict = {
   "dialog.project.edit.worktree.startup.description": "Runs after creating a new workspace (worktree).",
   "dialog.project.edit.worktree.startup.placeholder": "e.g. bun install",
 
+  "dialog.workspace.create.title": "New workspace",
+  "dialog.workspace.create.name": "Name",
+  "dialog.workspace.create.name.placeholder": "e.g. kind-otter",
+  "dialog.workspace.create.branch": "Branch name",
+  "dialog.workspace.create.branch.placeholder": "Defaults to opencode/<name>",
+  "dialog.workspace.create.baseBranch": "Base branch",
+  "dialog.workspace.create.baseBranch.placeholder": "Defaults to project setting or main",
+
+  "dialog.project.edit.worktreeSettings": "Workspace settings",
+  "dialog.project.edit.worktreeSettings.rootDir": "Worktree location",
+  "dialog.project.edit.worktreeSettings.rootDir.default.short": "Default",
+  "dialog.project.edit.worktreeSettings.rootDir.sibling.short": "Sibling",
+  "dialog.project.edit.worktreeSettings.rootDir.custom.short": "Custom",
+  "dialog.project.edit.worktreeSettings.rootDir.customPath": "Custom worktree root path",
+  "dialog.project.edit.worktreeSettings.rootDir.customPath.placeholder": "/absolute/path/to/worktrees",
+  "dialog.project.edit.worktreeSettings.baseBranch": "Default base branch",
+  "dialog.project.edit.worktreeSettings.baseBranch.placeholder": "e.g. main, develop",
+  "dialog.project.edit.worktreeSettings.baseBranch.description":
+    "Branch to create new worktrees from. Falls back to main or master.",
+  "dialog.project.edit.worktreeSettings.symlinks": "Symlinks",
+  "dialog.project.edit.worktreeSettings.symlinks.placeholder": "node_modules\n.venv",
+  "dialog.project.edit.worktreeSettings.symlinks.description":
+    "Paths to symlink from the main worktree (one per line).",
+  "dialog.project.edit.worktreeSettings.copies": "Copies",
+  "dialog.project.edit.worktreeSettings.copies.placeholder": ".env\n.env.local",
+  "dialog.project.edit.worktreeSettings.copies.description": "Paths to copy from the main worktree (one per line).",
+
   "dialog.releaseNotes.action.getStarted": "Get started",
   "dialog.releaseNotes.action.next": "Next",
   "dialog.releaseNotes.action.hideFuture": "Don't show these in the future",

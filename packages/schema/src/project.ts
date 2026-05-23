@@ -21,6 +21,19 @@ export const Commands = Schema.Struct({
   ),
 }).annotate({ identifier: "Project.Commands" })
 export interface Commands extends Schema.Schema.Type<typeof Commands> {}
+export const WorktreeSettings = Schema.Struct({
+  baseBranch: optional(Schema.String.annotate({ description: "Default branch to create new worktrees from" })),
+  symlinks: optional(
+    Schema.Array(Schema.String).annotate({ description: "Files or directories to symlink from the project root" }),
+  ),
+  copies: optional(
+    Schema.Array(Schema.String).annotate({ description: "Files or directories to copy from the project root" }),
+  ),
+  rootDir: optional(
+    Schema.String.annotate({ description: 'Where to create worktrees: "default", "sibling", or an absolute path' }),
+  ),
+}).annotate({ identifier: "Project.WorktreeSettings" })
+export interface WorktreeSettings extends Schema.Schema.Type<typeof WorktreeSettings> {}
 export const Time = Schema.Struct({
   created: NonNegativeInt,
   updated: NonNegativeInt,
@@ -35,6 +48,7 @@ export const Info = Schema.Struct({
   name: optional(Schema.String),
   icon: optional(Icon),
   commands: optional(Commands),
+  worktreeSettings: optional(WorktreeSettings),
   time: Time,
   sandboxes: Schema.Array(Schema.String),
 }).annotate({ identifier: "Project" })

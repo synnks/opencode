@@ -142,6 +142,7 @@ import type {
   ProjectListResponses,
   ProjectUpdateErrors,
   ProjectUpdateResponses,
+  ProjectWorktreeSettings,
   PromptInput,
   ProviderAuthErrors,
   ProviderAuthResponses,
@@ -2631,6 +2632,7 @@ export class Project extends HeyApiClient {
       name?: string
       icon?: ProjectIcon
       commands?: ProjectCommands
+      worktreeSettings?: ProjectWorktreeSettings
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -2645,6 +2647,7 @@ export class Project extends HeyApiClient {
             { in: "body", key: "name" },
             { in: "body", key: "icon" },
             { in: "body", key: "commands" },
+            { in: "body", key: "worktreeSettings" },
           ],
         },
       ],

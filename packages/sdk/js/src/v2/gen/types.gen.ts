@@ -1486,6 +1486,7 @@ export type GlobalEvent = {
           name?: string
           icon?: ProjectIcon
           commands?: ProjectCommands
+          worktreeSettings?: ProjectWorktreeSettings
           time: ProjectTime
           sandboxes: Array<string>
         }
@@ -2170,6 +2171,14 @@ export type WorktreeError = {
 export type WorktreeCreateInput = {
   name?: string
   /**
+   * Custom branch name for the worktree
+   */
+  branch?: string
+  /**
+   * Branch to create the worktree from
+   */
+  baseBranch?: string
+  /**
    * Additional startup script to run after the project's start command
    */
   startCommand?: string
@@ -2431,6 +2440,7 @@ export type Project = {
   name?: string
   icon?: ProjectIcon
   commands?: ProjectCommands
+  worktreeSettings?: ProjectWorktreeSettings
   time: ProjectTime
   sandboxes: Array<string>
 }
@@ -3178,6 +3188,25 @@ export type ProjectCommands = {
    * Startup script to run when creating a new workspace (worktree)
    */
   start?: string
+}
+
+export type ProjectWorktreeSettings = {
+  /**
+   * Default branch to create new worktrees from
+   */
+  baseBranch?: string
+  /**
+   * Files or directories to symlink from the project root
+   */
+  symlinks?: Array<string>
+  /**
+   * Files or directories to copy from the project root
+   */
+  copies?: Array<string>
+  /**
+   * Where to create worktrees: "default", "sibling", or an absolute path
+   */
+  rootDir?: string
 }
 
 export type ProjectTime = {
@@ -5908,6 +5937,7 @@ export type ProjectUpdated = {
     name?: string
     icon?: ProjectIcon
     commands?: ProjectCommands
+    worktreeSettings?: ProjectWorktreeSettings
     time: ProjectTime
     sandboxes: Array<string>
   }
@@ -6926,6 +6956,7 @@ export type EventProjectUpdated = {
     name?: string
     icon?: ProjectIcon
     commands?: ProjectCommands
+    worktreeSettings?: ProjectWorktreeSettings
     time: ProjectTime
     sandboxes: Array<string>
   }
@@ -8794,6 +8825,7 @@ export type ProjectUpdateData = {
     name?: string
     icon?: ProjectIcon
     commands?: ProjectCommands
+    worktreeSettings?: ProjectWorktreeSettings
   }
   path: {
     projectID: string

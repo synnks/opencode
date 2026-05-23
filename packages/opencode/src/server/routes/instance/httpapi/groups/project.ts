@@ -13,6 +13,7 @@ const UpdatePayload = Schema.Struct({
   name: Schema.optional(Schema.String),
   icon: Schema.optional(Project.Info.fields.icon),
   commands: Schema.optional(Project.Info.fields.commands),
+  worktreeSettings: Schema.optional(Project.Info.fields.worktreeSettings),
 })
 
 export const ProjectApi = HttpApi.make("project")
