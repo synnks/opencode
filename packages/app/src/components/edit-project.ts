@@ -19,6 +19,10 @@ export function createEditProjectModel(props: { project: LocalProject; server: S
     color: props.project.icon?.color,
     iconOverride: props.project.icon?.override,
     startup: props.project.commands?.start ?? "",
+    worktreeRootDir: props.project.worktreeSettings?.rootDir ?? "default",
+    worktreeBaseBranch: props.project.worktreeSettings?.baseBranch ?? "",
+    worktreeSymlinks: (props.project.worktreeSettings?.symlinks ?? []).join("\n"),
+    worktreeCopies: (props.project.worktreeSettings?.copies ?? []).join("\n"),
     dragOver: false,
     iconHover: false,
   })
@@ -69,6 +73,22 @@ export function createEditProjectModel(props: { project: LocalProject; server: S
     mutationFn: async () => {
       const name = store.name.trim() === folderName() ? "" : store.name.trim()
       const start = store.startup.trim()
+      const worktreeSettings = {
+        rootDir: store.worktreeRootDir === "default" ? undefined : store.worktreeRootDir,
+        baseBranch: store.worktreeBaseBranch.trim() || undefined,
+        symlinks: store.worktreeSymlinks.trim()
+          ? store.worktreeSymlinks
+              .split("\n")
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : undefined,
+        copies: store.worktreeCopies.trim()
+          ? store.worktreeCopies
+              .split("\n")
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : undefined,
+      }
 
       if (props.project.id && props.project.id !== "global") {
         if ((await serverCtx().sdk.protocol) !== "v1") return
@@ -79,15 +99,10 @@ export function createEditProjectModel(props: { project: LocalProject; server: S
             name,
             icon: { color: store.color || "", override: store.iconOverride || "" },
             commands: { start },
+            worktreeSettings,
           })
           .then((result) => result.data)
         if (!project) return
-        // const project = await serverCtx().sdk.api.project.update({
-        //   projectID: props.project.id,
-        //   name,
-        //   icon: { color: store.color || "", override: store.iconOverride || "" },
-        //   commands: { start },
-        // })
         serverCtx().sync.set("project", (items) =>
           items.map((item) => (item.id === project.id ? normalizeProjectInfo(project) : item)),
         )

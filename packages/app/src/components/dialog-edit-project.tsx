@@ -17,7 +17,7 @@ export function DialogEditProject(props: { project: LocalProject; server: Server
   const model = createEditProjectModel(props)
 
   return (
-    <Dialog title={language.t("dialog.project.edit.title")} class="w-full max-w-[480px] mx-auto">
+    <Dialog fit title={language.t("dialog.project.edit.title")} class="w-full max-w-[480px] mx-auto">
       <form onSubmit={model.submit} class="flex flex-col gap-6 p-6 pt-0">
         <div class="flex flex-col gap-4">
           <TextField
@@ -154,6 +154,83 @@ export function DialogEditProject(props: { project: LocalProject; server: Server
             spellcheck={false}
             class="max-h-14 w-full overflow-y-auto font-mono text-xs"
           />
+
+          <Show when={props.project.vcs === "git"}>
+            <div class="flex flex-col gap-2">
+              <label class="text-12-medium text-text-weak">
+                {language.t("dialog.project.edit.worktreeSettings.rootDir")}
+              </label>
+              <div class="flex gap-1">
+                <For each={["default", "sibling", "custom"] as const}>
+                  {(option) => (
+                    <button
+                      type="button"
+                      class="px-3 py-1.5 rounded-md text-12-medium transition-colors cursor-default"
+                      classList={{
+                        "bg-surface-interactive-base text-text-on-interactive-base":
+                          model.store.worktreeRootDir === option ||
+                          (option === "custom" &&
+                            model.store.worktreeRootDir !== "default" &&
+                            model.store.worktreeRootDir !== "sibling"),
+                        "bg-surface-base-hover text-text-base hover:bg-surface-base-active":
+                          model.store.worktreeRootDir !== option &&
+                          !(
+                            option === "custom" &&
+                            model.store.worktreeRootDir !== "default" &&
+                            model.store.worktreeRootDir !== "sibling"
+                          ),
+                      }}
+                      onClick={() => model.setStore("worktreeRootDir", option === "custom" ? "" : option)}
+                    >
+                      {language.t(`dialog.project.edit.worktreeSettings.rootDir.${option}.short`)}
+                    </button>
+                  )}
+                </For>
+              </div>
+              <Show when={model.store.worktreeRootDir !== "default" && model.store.worktreeRootDir !== "sibling"}>
+                <TextField
+                  type="text"
+                  placeholder={language.t("dialog.project.edit.worktreeSettings.rootDir.customPath.placeholder")}
+                  value={model.store.worktreeRootDir === "custom" ? "" : model.store.worktreeRootDir}
+                  onChange={(v) => model.setStore("worktreeRootDir", v)}
+                  spellcheck={false}
+                  class="font-mono text-xs"
+                />
+              </Show>
+            </div>
+
+            <TextField
+              type="text"
+              label={language.t("dialog.project.edit.worktreeSettings.baseBranch")}
+              description={language.t("dialog.project.edit.worktreeSettings.baseBranch.description")}
+              placeholder={language.t("dialog.project.edit.worktreeSettings.baseBranch.placeholder")}
+              value={model.store.worktreeBaseBranch}
+              onChange={(v) => model.setStore("worktreeBaseBranch", v)}
+              spellcheck={false}
+            />
+
+            <TextField
+              multiline
+              label={language.t("dialog.project.edit.worktreeSettings.symlinks")}
+              description={language.t("dialog.project.edit.worktreeSettings.symlinks.description")}
+              placeholder={language.t("dialog.project.edit.worktreeSettings.symlinks.placeholder")}
+              value={model.store.worktreeSymlinks}
+              onChange={(v) => model.setStore("worktreeSymlinks", v)}
+              spellcheck={false}
+              class="max-h-14 w-full overflow-y-auto font-mono text-xs"
+            />
+
+            <TextField
+              multiline
+              label={language.t("dialog.project.edit.worktreeSettings.copies")}
+              description={language.t("dialog.project.edit.worktreeSettings.copies.description")}
+              placeholder={language.t("dialog.project.edit.worktreeSettings.copies.placeholder")}
+              value={model.store.worktreeCopies}
+              onChange={(v) => model.setStore("worktreeCopies", v)}
+              spellcheck={false}
+              class="max-h-14 w-full overflow-y-auto font-mono text-xs"
+            />
+          </Show>
         </div>
 
         <div class="flex justify-end gap-2">
