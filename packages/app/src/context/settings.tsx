@@ -59,8 +59,8 @@ export const sansDefault = "System Sans"
 export const terminalDefault = "JetBrainsMono Nerd Font Mono"
 const legacyNewLayoutDesignsDefault = import.meta.env.VITE_OPENCODE_CHANNEL !== "prod"
 export const newLayoutDesignsDefault = true
-// Existing users can switch layouts until local midnight on this date. Set new Date(YYYY, M-1, D) to show.
-export const oldInterfaceSunset = new Date(2026, 8, 14)
+// Keep the layout switch available to existing users without scheduling retirement.
+export const oldInterfaceSunset = undefined as Date | undefined
 const newLayoutDesignsUpgradeCutoff = "1.17.19"
 
 function compareVersions(a: string, b: string) {
@@ -113,10 +113,10 @@ export function shouldEnableNewLayout(previous: string | undefined, current: str
   )
 }
 
-export function layoutTransitionState(scheduled: boolean, eligible: boolean, retired: boolean, dismissed: boolean) {
+export function layoutTransitionState(enabled: boolean, eligible: boolean, retired: boolean, dismissed: boolean) {
   return {
-    available: scheduled && eligible && !retired,
-    notice: scheduled && eligible && retired && !dismissed,
+    available: enabled && eligible && !retired,
+    notice: enabled && eligible && retired && !dismissed,
   }
 }
 
@@ -258,7 +258,7 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         : false,
     )
     const layoutTransition = createMemo(() =>
-      layoutTransitionState(!!sunset, layoutTransitionEligible(), oldInterfaceRetired(), newInterfaceNoticeDismissed()),
+      layoutTransitionState(true, layoutTransitionEligible(), oldInterfaceRetired(), newInterfaceNoticeDismissed()),
     )
     const newLayoutDesigns = createMemo(() => {
       if (layoutUpgrade()) return true

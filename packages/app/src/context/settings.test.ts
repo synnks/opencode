@@ -7,6 +7,7 @@ import {
   maximumSunsetTimeout,
   newLayoutDesignsDefault,
   nextSunsetCheckDelay,
+  oldInterfaceSunset,
   resolveNewLayoutDesigns,
   shouldDisplayTabsToast,
   shouldEnableNewLayout,
@@ -31,6 +32,11 @@ describe("agent visibility", () => {
 describe("layout transition", () => {
   test("blank profiles default to the new layout", () => {
     expect(newLayoutDesignsDefault).toBe(true)
+  })
+
+  test("keeps the previous layout available without a sunset", () => {
+    expect(oldInterfaceSunset).toBeUndefined()
+    expect(layoutTransitionState(true, true, false, false)).toEqual({ available: true, notice: false })
   })
 
   test("hides the transition until a sunset is scheduled", () => {
