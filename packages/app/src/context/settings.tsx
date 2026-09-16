@@ -258,7 +258,12 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         : false,
     )
     const layoutTransition = createMemo(() =>
-      layoutTransitionState(true, layoutTransitionEligible(), oldInterfaceRetired(), newInterfaceNoticeDismissed()),
+      layoutTransitionState(
+        true,
+        platform.platform === "web" || layoutTransitionEligible(),
+        oldInterfaceRetired(),
+        newInterfaceNoticeDismissed(),
+      ),
     )
     const newLayoutDesigns = createMemo(() => {
       if (layoutUpgrade()) return true
