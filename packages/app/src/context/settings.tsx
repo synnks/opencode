@@ -57,8 +57,8 @@ export interface Settings {
 export const monoDefault = "System Mono"
 export const sansDefault = "System Sans"
 export const terminalDefault = "JetBrainsMono Nerd Font Mono"
-const legacyNewLayoutDesignsDefault = import.meta.env.VITE_OPENCODE_CHANNEL !== "prod"
-export const newLayoutDesignsDefault = true
+const legacyNewLayoutDesignsDefault = false
+export const newLayoutDesignsDefault = false
 // Keep the layout switch available to existing users without scheduling retirement.
 export const oldInterfaceSunset = undefined as Date | undefined
 const newLayoutDesignsUpgradeCutoff = "1.17.19"
@@ -126,7 +126,11 @@ export function nextSunsetCheckDelay(sunset: number, now: number) {
   return Math.min(Math.max(0, sunset - now), maximumSunsetTimeout)
 }
 
-export function resolveNewLayoutDesigns(retired: boolean, preference: boolean | undefined, fallback = true) {
+export function resolveNewLayoutDesigns(
+  retired: boolean,
+  preference: boolean | undefined,
+  fallback = newLayoutDesignsDefault,
+) {
   if (retired) return true
   return preference ?? fallback
 }

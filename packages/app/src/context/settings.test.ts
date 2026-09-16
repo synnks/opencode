@@ -30,8 +30,8 @@ describe("agent visibility", () => {
 })
 
 describe("layout transition", () => {
-  test("blank profiles default to the new layout", () => {
-    expect(newLayoutDesignsDefault).toBe(true)
+  test("blank profiles default to the old layout", () => {
+    expect(newLayoutDesignsDefault).toBe(false)
   })
 
   test("keeps the previous layout available without a sunset", () => {
@@ -55,6 +55,8 @@ describe("layout transition", () => {
 
   test("preserves explicit and default layout preferences", () => {
     expect(resolveNewLayoutDesigns(false, false, true)).toBe(false)
+    expect(resolveNewLayoutDesigns(false, true, false)).toBe(true)
+    expect(resolveNewLayoutDesigns(false, undefined)).toBe(false)
     expect(resolveNewLayoutDesigns(false, undefined, false)).toBe(false)
     expect(resolveNewLayoutDesigns(false, undefined, true)).toBe(true)
   })
